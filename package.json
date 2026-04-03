@@ -12,6 +12,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.91",
     "@chat-adapter/slack": "^4.23.0",
     "@chat-adapter/state-memory": "^4.23.0",
+    "@chat-adapter/state-redis": "^4.23.0",
     "@vercel/sandbox": "^1.9.2",
     "chat": "^4.23.0",
     "next": "16.2.2",

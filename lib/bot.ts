@@ -1,6 +1,6 @@
 import { Chat } from "chat";
 import { createSlackAdapter } from "@chat-adapter/slack";
-import { createMemoryState } from "@chat-adapter/state-memory";
+import { createRedisState } from "@chat-adapter/state-redis";
 
 export interface ThreadState {
   runId?: string;
@@ -13,6 +13,6 @@ const adapters = {
 export const bot = new Chat<typeof adapters, ThreadState>({
   userName: "athanir",
   adapters,
-  state: createMemoryState(),
+  state: createRedisState(),
   onLockConflict: "force",
 }).registerSingleton();
