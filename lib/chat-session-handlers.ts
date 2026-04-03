@@ -46,6 +46,7 @@ async function routeTurn(
 
   if (!state?.runId) {
     await thread.subscribe();
+    await thread.post("Got it, working on it now.");
     await startSession(thread, message, repoConfig);
     return;
   }

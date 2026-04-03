@@ -1,4 +1,3 @@
-import { type Thread } from "chat";
 import { type Sandbox } from "@vercel/sandbox";
 import { bot, type ThreadState } from "@/lib/bot";
 import {
@@ -11,9 +10,17 @@ import {
 } from "@/lib/agent";
 import { type RepoConfig } from "@/lib/config";
 
+/** Deserialize a payload string into thread + message + repoConfig. */
 export async function parsePayload(payload: string) {
   "use step";
-  return JSON.parse(payload, bot.reviver());
+  await bot.initialize();
+  const parsed = JSON.parse(payload, bot.reviver());
+  // Return the thread as serialized JSON so it can cross workflow boundaries
+  return {
+    threadJson: JSON.stringify(parsed.thread.toJSON()),
+    messageText: parsed.message.text as string,
+    repoConfig: parsed.repoConfig as RepoConfig,
+  };
 }
 
 export async function setupSandbox(repoConfig: RepoConfig) {
@@ -40,13 +47,15 @@ export async function pushChanges(
   return openOrUpdatePR(branchName, prompt, repoConfig, existingPrUrl);
 }
 
+/** Post a response to the thread. Takes serialized thread JSON, not Thread object. */
 export async function postResponse(
-  thread: Thread<ThreadState>,
+  threadJson: string,
   text: string,
   prUrl?: string
 ) {
   "use step";
   await bot.initialize();
+  const thread = JSON.parse(threadJson, bot.reviver());
   if (prUrl) {
     await thread.post(text ? `${text}\n\nPR: ${prUrl}` : `Done! PR: ${prUrl}`);
   } else {
@@ -54,20 +63,16 @@ export async function postResponse(
   }
 }
 
+/** Close the session: stop sandbox, post, unsubscribe. */
 export async function closeSession(
-  thread: Thread<ThreadState>,
+  threadJson: string,
   sandbox: Sandbox
 ) {
   "use step";
   await bot.initialize();
+  const thread = JSON.parse(threadJson, bot.reviver());
   await stopSandbox(sandbox);
   await thread.post("Session closed.");
   await thread.unsubscribe();
   await thread.setState({}, { replace: true });
-}
-
-export async function deserializeMessage(serialized: unknown) {
-  "use step";
-  const { Message } = await import("chat");
-  return Message.fromJSON(serialized as import("chat").SerializedMessage);
 }
