@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Athanir Agent
 
-## Getting Started
+An AI agent that lets anyone — clients, teammates, stakeholders — make website updates through the chat tools they already use. No CMS login, no code review bottleneck, no waiting on a developer. Just ask in the channel.
 
-First, run the development server:
+A stakeholder says *"change the hero heading to Welcome to Freedom Missions"* in Slack, and the agent clones the repo, makes the edit, opens a PR with a preview deploy, and posts the link back. They review it visually, request tweaks in the same thread, and approve when it looks right. Nothing merges without human review.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## How it works
+
+```
+Stakeholder messages @bot in Slack
+  → Vercel Sandbox spins up with the target repo
+  → Claude makes the requested changes
+  → Agent pushes a branch, opens a PR
+  → Preview URL posted back to the thread
+  → Follow-up messages in the same thread refine the change
+  → PR merges when approved
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The agent handles questions too. Ask *"what font are we using on the homepage?"* and it reads the code and answers — no PR, no branch, just an answer in the thread.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Sessions are durable. The sandbox stays alive across a conversation, so follow-ups build on previous changes instead of starting from scratch.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Multi-client by design
 
-## Learn More
+This isn't tied to one project. Each Slack channel maps to a different GitHub repo. Invite a client as a Slack guest to their channel, and they can request changes to their site without touching anything else.
 
-To learn more about Next.js, take a look at the following resources:
+GitHub tokens are scoped per channel — a client's token only has access to their repo.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Multi-platform intent
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Slack is first, but the architecture supports any platform the [Vercel Chat SDK](https://github.com/vercel/chat) provides adapters for. The same bot logic works across Slack, Microsoft Teams, Google Chat, and others with minimal wiring — swap the adapter, point the webhook.
 
-## Deploy on Vercel
+## Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Next.js** on Vercel — hosts the webhook endpoint
+- **Chat SDK** (`chat` + `@chat-adapter/slack`) — normalizes platform events into threads and messages
+- **Vercel Workflow** — durable multi-turn sessions that survive deploys
+- **Vercel Sandbox** — ephemeral VMs where Claude reads and edits code safely
+- **Claude Code** — runs inside the sandbox with full file access
+- **GitHub API** — pushes branches and opens PRs
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Setup
+
+```bash
+bun install
+```
+
+Set environment variables in `.env.local` (or via `vercel env`):
+
+```
+ANTHROPIC_API_KEY=
+SLACK_BOT_TOKEN=
+SLACK_SIGNING_SECRET=
+GITHUB_TOKEN_DEFAULT=
+```
+
+Add channel-to-repo mappings in `lib/config.ts`.
+
+Deploy to Vercel and set your Slack app's Event Subscriptions URL to `https://<domain>/api/slack`.
