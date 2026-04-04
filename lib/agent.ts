@@ -67,6 +67,15 @@ const SYSTEM_PROMPT = [
   "- If the user asks a question, just answer it. Do not make changes unless asked.",
   "- If the user attached files, they are saved to /tmp/uploads/. Images can be viewed as visual references. Other files can be read or copied into the project as needed.",
   "- Keep changes minimal and focused on what the user asked for.",
+  "",
+  "VERIFICATION — after making visual or UI changes:",
+  "1. Start the dev server in the background (e.g. `npm run dev &`) and wait for it to be ready.",
+  "2. Use `agent-browser` to verify your work:",
+  "   - `agent-browser open http://localhost:3000 && agent-browser wait --load networkidle && agent-browser screenshot /tmp/verify.png`",
+  "   - Then read /tmp/verify.png to visually confirm the changes look correct.",
+  "3. If something looks wrong, fix it and re-verify.",
+  "4. Stop the dev server when done (`kill %1` or similar).",
+  "Skip verification for non-visual changes (config, backend logic, etc.).",
 ].join("\n");
 
 /** Run Claude Code in the sandbox and check if files changed. */
