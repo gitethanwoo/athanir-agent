@@ -1,4 +1,4 @@
-import { type Message, type Thread } from "chat";
+import { emoji, type Message, type Thread } from "chat";
 import { resumeHook, start } from "workflow/api";
 import { bot, type ThreadState } from "@/lib/bot";
 import { getRepoForChannel } from "@/lib/config";
@@ -18,7 +18,7 @@ async function startSession(
     }),
   ]);
 
-  await thread.setState({ runId: run.runId });
+  await thread.setState({ runId: run.runId }, { replace: true });
 }
 
 async function routeTurn(
@@ -46,7 +46,7 @@ async function routeTurn(
 
   if (!state?.runId) {
     await thread.subscribe();
-    await thread.post("Got it, working on it now.");
+    await thread.createSentMessageFromMessage(message).addReaction(emoji.eyes);
     await startSession(thread, message, repoConfig);
     return;
   }

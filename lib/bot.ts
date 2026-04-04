@@ -4,6 +4,7 @@ import { createRedisState } from "@chat-adapter/state-redis";
 
 export interface ThreadState {
   runId?: string;
+  claudeSessionId?: string;
 }
 
 const adapters = {

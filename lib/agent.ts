@@ -39,34 +39,54 @@ export async function cloneRepo(
 export interface ClaudeResult {
   text: string;
   hasChanges: boolean;
+  sessionId?: string;
+  success: boolean;
+  stderr?: string;
 }
 
 /** Run Claude Code in the sandbox and check if files changed. */
 export async function runClaude(
   sandbox: Sandbox,
-  prompt: string
+  prompt: string,
+  sessionId?: string
 ): Promise<ClaudeResult> {
   const cwd = "/vercel/sandbox/project";
+  const args = ["-p"];
+
+  if (sessionId) {
+    args.push("--resume", sessionId);
+  }
+
+  args.push(
+    prompt,
+    "--output-format",
+    "json",
+    "--dangerously-skip-permissions"
+  );
 
   const result = await sandbox.runCommand({
     cmd: "claude",
-    args: ["-p", prompt, "--output-format", "json", "--dangerously-skip-permissions"],
+    args,
     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
     cwd,
   });
 
   // Extract text response
   let text = "";
+  let returnedSessionId: string | undefined;
+  let stderr = "";
   try {
     const stdout = await result.stdout();
     const parsed = JSON.parse(stdout);
     text = parsed.result ?? stdout;
+    returnedSessionId =
+      typeof parsed.session_id === "string" ? parsed.session_id : undefined;
   } catch {
     text = (await result.stdout()).trim();
   }
 
   if (result.exitCode !== 0) {
-    const stderr = await result.stderr();
+    stderr = await result.stderr();
     text = text || `Claude Code error: ${stderr}`;
   }
 
@@ -74,7 +94,13 @@ export async function runClaude(
   const diff = await sandbox.runCommand({ cmd: "git", args: ["status", "--porcelain"], cwd });
   const hasChanges = (await diff.stdout()).trim().length > 0;
 
-  return { text, hasChanges };
+  return {
+    text,
+    hasChanges,
+    sessionId: returnedSessionId,
+    success: result.exitCode === 0,
+    stderr,
+  };
 }
 
 /** Stage, commit, and push changes. */

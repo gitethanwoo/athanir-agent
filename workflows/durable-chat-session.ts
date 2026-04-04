@@ -6,19 +6,23 @@ import {
   parsePayload,
   setupSandbox,
   executePrompt,
+  updateClaudeSession,
   pushChanges,
   postResponse,
+  markMessageHandled,
   closeSession,
 } from "@/workflows/steps/chat-steps";
 
 async function processTurn(
   threadJson: string,
+  messageJson: string,
   messageText: string,
   sandbox: Sandbox,
   branchName: string,
   repoConfig: RepoConfig,
+  claudeSessionId?: string,
   prUrl?: string
-): Promise<{ prUrl?: string; keepRunning: boolean }> {
+): Promise<{ claudeSessionId?: string; prUrl?: string; keepRunning: boolean }> {
   const text = messageText.replace(/<@[A-Z0-9]+>\s*/g, "").trim();
 
   if (text.toLowerCase() === "done") {
@@ -26,7 +30,12 @@ async function processTurn(
     return { keepRunning: false };
   }
 
-  const result = await executePrompt(sandbox, text);
+  const result = await executePrompt(sandbox, threadJson, text, claudeSessionId);
+
+  const newClaudeSessionId = result.sessionId ?? claudeSessionId;
+  if (newClaudeSessionId && newClaudeSessionId !== claudeSessionId) {
+    await updateClaudeSession(threadJson, newClaudeSessionId);
+  }
 
   let newPrUrl = prUrl;
   if (result.hasChanges) {
@@ -34,14 +43,19 @@ async function processTurn(
   }
 
   await postResponse(threadJson, result.text, result.hasChanges ? newPrUrl : undefined);
-  return { prUrl: newPrUrl, keepRunning: true };
+  await markMessageHandled(threadJson, messageJson);
+  return {
+    claudeSessionId: newClaudeSessionId,
+    prUrl: newPrUrl,
+    keepRunning: true,
+  };
 }
 
 export async function durableChatSession(payload: string) {
   "use workflow";
 
   const { workflowRunId } = getWorkflowMetadata();
-  const { threadJson, messageText, repoConfig } = await parsePayload(payload);
+  const { threadJson, messageJson, messageText, repoConfig } = await parsePayload(payload);
 
   using hook = createHook<ChatTurnPayload>({ token: workflowRunId });
 
@@ -49,6 +63,7 @@ export async function durableChatSession(payload: string) {
 
   let turnResult = await processTurn(
     threadJson,
+    messageJson,
     messageText,
     sandbox,
     branchName,
@@ -61,10 +76,12 @@ export async function durableChatSession(payload: string) {
     const msgText = (event.message as unknown as { text?: string }).text ?? "";
     turnResult = await processTurn(
       threadJson,
+      JSON.stringify(event.message),
       msgText,
       sandbox,
       branchName,
       repoConfig,
+      turnResult.claudeSessionId,
       turnResult.prUrl
     );
     if (!turnResult.keepRunning) return;
