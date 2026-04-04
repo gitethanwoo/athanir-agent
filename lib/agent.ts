@@ -101,10 +101,23 @@ export async function runClaude(
     "Bash(wget:*)",
   );
 
+  const env: Record<string, string> = {
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
+  };
+
+  if (process.env.AXIOM_TOKEN) {
+    env.CLAUDE_CODE_ENABLE_TELEMETRY = "1";
+    env.OTEL_METRICS_EXPORTER = "otlp";
+    env.OTEL_LOGS_EXPORTER = "otlp";
+    env.OTEL_EXPORTER_OTLP_PROTOCOL = "http/json";
+    env.OTEL_EXPORTER_OTLP_ENDPOINT = "https://api.axiom.co";
+    env.OTEL_EXPORTER_OTLP_HEADERS = `Authorization=Bearer ${process.env.AXIOM_TOKEN},X-Axiom-Dataset=${process.env.AXIOM_DATASET}`;
+  }
+
   const result = await sandbox.runCommand({
     cmd: "claude",
     args,
-    env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+    env,
     cwd,
   });
 
