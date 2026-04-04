@@ -19,12 +19,25 @@ export async function cloneRepo(
 ): Promise<string> {
   const { owner, repo, baseBranch } = repoConfig;
   const githubToken = getGitHubToken(repoConfig);
-  const repoUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${repo}.git`;
+  const repoUrl = `https://github.com/${owner}/${repo}.git`;
   const branchName = `athanir/${Date.now()}`;
+  const gitEnv = { GIT_TOKEN: githubToken };
+
+  // Configure a credential helper that reads the token from an env var
+  // so it never appears in .git/config where Claude Code could read it.
+  await sandbox.runCommand({
+    cmd: "git",
+    args: [
+      "config", "--global", "credential.helper",
+      "!f() { echo username=x-access-token; echo password=$GIT_TOKEN; }; f",
+    ],
+    env: gitEnv,
+  });
 
   await sandbox.runCommand({
     cmd: "git",
     args: ["clone", "--depth", "1", "-b", baseBranch, repoUrl, "project"],
+    env: gitEnv,
   });
 
   await sandbox.runCommand({
@@ -44,6 +57,18 @@ export interface ClaudeResult {
   stderr?: string;
 }
 
+const SYSTEM_PROMPT = [
+  "You are Athanir, an AI coding agent. Users ask you to make changes to this repository via chat.",
+  "You are running inside a sandboxed environment. The repository is cloned at /vercel/sandbox/project.",
+  "",
+  "IMPORTANT rules:",
+  "- Do NOT run git commit, git push, or any git commands that modify history. Committing and pushing is handled automatically after you finish.",
+  "- Only edit files. Make the requested changes to the codebase.",
+  "- If the user asks a question, just answer it. Do not make changes unless asked.",
+  "- If the user attached files, they are saved to /tmp/uploads/. Images can be viewed as visual references. Other files can be read or copied into the project as needed.",
+  "- Keep changes minimal and focused on what the user asked for.",
+].join("\n");
+
 /** Run Claude Code in the sandbox and check if files changed. */
 export async function runClaude(
   sandbox: Sandbox,
@@ -61,7 +86,19 @@ export async function runClaude(
     prompt,
     "--output-format",
     "json",
-    "--dangerously-skip-permissions"
+    "--system-prompt",
+    SYSTEM_PROMPT,
+    "--permission-mode",
+    "bypassPermissions",
+    "--disallowedTools",
+    "Bash(git commit:*)",
+    "Bash(git push:*)",
+    "Bash(git merge:*)",
+    "Bash(git rebase:*)",
+    "Bash(git reset:*)",
+    "Bash(git checkout -B:*)",
+    "Bash(curl:*)",
+    "Bash(wget:*)",
   );
 
   const result = await sandbox.runCommand({
@@ -107,14 +144,20 @@ export async function runClaude(
 export async function commitAndPush(
   sandbox: Sandbox,
   prompt: string,
-  branchName: string
+  branchName: string,
+  repoConfig: RepoConfig
 ): Promise<void> {
   const cwd = "/vercel/sandbox/project";
   const commitMsg = `athanir: ${prompt.slice(0, 72)}`;
 
   await sandbox.runCommand({ cmd: "git", args: ["add", "-A"], cwd });
   await sandbox.runCommand({ cmd: "git", args: ["commit", "-m", commitMsg], cwd });
-  await sandbox.runCommand({ cmd: "git", args: ["push", "origin", branchName], cwd });
+  await sandbox.runCommand({
+    cmd: "git",
+    args: ["push", "origin", branchName],
+    cwd,
+    env: { GIT_TOKEN: getGitHubToken(repoConfig) },
+  });
 }
 
 /** Open a new PR or return the existing one. */

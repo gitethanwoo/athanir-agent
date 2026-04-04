@@ -2,6 +2,7 @@ import { emoji, type Message, type Thread } from "chat";
 import { resumeHook, start } from "workflow/api";
 import { bot, type ThreadState } from "@/lib/bot";
 import { getRepoForChannel } from "@/lib/config";
+import { fetchAttachments } from "@/lib/attachments";
 import { durableChatSession } from "@/workflows/durable-chat-session";
 import type { ChatTurnPayload } from "@/workflows/chat-turn-hook";
 
@@ -10,11 +11,13 @@ async function startSession(
   message: Message,
   repoConfig: ReturnType<typeof getRepoForChannel>
 ) {
+  const attachments = await fetchAttachments(message);
   const run = await start(durableChatSession, [
     JSON.stringify({
       thread: thread.toJSON(),
       message: message.toJSON(),
       repoConfig,
+      attachments,
     }),
   ]);
 
@@ -52,8 +55,10 @@ async function routeTurn(
   }
 
   try {
+    const attachments = await fetchAttachments(message);
     await resumeHook<ChatTurnPayload>(state.runId, {
       message: message.toJSON(),
+      attachments,
     });
   } catch {
     // Workflow may have ended — start a fresh session

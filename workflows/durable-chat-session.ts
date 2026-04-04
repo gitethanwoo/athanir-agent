@@ -1,10 +1,12 @@
 import { type Sandbox } from "@vercel/sandbox";
 import { createHook, getWorkflowMetadata } from "workflow";
 import type { RepoConfig } from "@/lib/config";
+import type { SerializedAttachment } from "@/lib/attachments";
 import type { ChatTurnPayload } from "@/workflows/chat-turn-hook";
 import {
   parsePayload,
   setupSandbox,
+  writeAttachmentsToSandbox,
   executePrompt,
   updateClaudeSession,
   pushChanges,
@@ -21,7 +23,8 @@ async function processTurn(
   branchName: string,
   repoConfig: RepoConfig,
   claudeSessionId?: string,
-  prUrl?: string
+  prUrl?: string,
+  attachments?: SerializedAttachment[]
 ): Promise<{ claudeSessionId?: string; prUrl?: string; keepRunning: boolean }> {
   const text = messageText.replace(/<@[A-Z0-9]+>\s*/g, "").trim();
 
@@ -30,7 +33,11 @@ async function processTurn(
     return { keepRunning: false };
   }
 
-  const result = await executePrompt(sandbox, threadJson, text, claudeSessionId);
+  const filePaths = attachments?.length
+    ? await writeAttachmentsToSandbox(sandbox, attachments)
+    : [];
+
+  const result = await executePrompt(sandbox, threadJson, text, claudeSessionId, filePaths);
 
   const newClaudeSessionId = result.sessionId ?? claudeSessionId;
   if (newClaudeSessionId && newClaudeSessionId !== claudeSessionId) {
@@ -55,7 +62,7 @@ export async function durableChatSession(payload: string) {
   "use workflow";
 
   const { workflowRunId } = getWorkflowMetadata();
-  const { threadJson, messageJson, messageText, repoConfig } = await parsePayload(payload);
+  const { threadJson, messageJson, messageText, repoConfig, attachments } = await parsePayload(payload);
 
   using hook = createHook<ChatTurnPayload>({ token: workflowRunId });
 
@@ -67,12 +74,14 @@ export async function durableChatSession(payload: string) {
     messageText,
     sandbox,
     branchName,
-    repoConfig
+    repoConfig,
+    undefined,
+    undefined,
+    attachments
   );
   if (!turnResult.keepRunning) return;
 
   for await (const event of hook) {
-    // Extract text from the serialized message
     const msgText = (event.message as unknown as { text?: string }).text ?? "";
     turnResult = await processTurn(
       threadJson,
@@ -82,7 +91,8 @@ export async function durableChatSession(payload: string) {
       branchName,
       repoConfig,
       turnResult.claudeSessionId,
-      turnResult.prUrl
+      turnResult.prUrl,
+      event.attachments
     );
     if (!turnResult.keepRunning) return;
   }

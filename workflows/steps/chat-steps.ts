@@ -10,21 +10,22 @@ import {
   stopSandbox,
 } from "@/lib/agent";
 import { type RepoConfig } from "@/lib/config";
+import type { SerializedAttachment } from "@/lib/attachments";
 
 const MAX_CONTEXT_MESSAGES = 20;
 const MAX_CONTEXT_CHARS = 12_000;
 
-/** Deserialize a payload string into thread + message + repoConfig. */
+/** Deserialize a payload string into thread + message + repoConfig + attachments. */
 export async function parsePayload(payload: string) {
   "use step";
   await bot.initialize();
   const parsed = JSON.parse(payload, bot.reviver());
-  // Return the thread as serialized JSON so it can cross workflow boundaries
   return {
     threadJson: JSON.stringify(parsed.thread.toJSON()),
     messageJson: JSON.stringify(parsed.message.toJSON()),
     messageText: parsed.message.text as string,
     repoConfig: parsed.repoConfig as RepoConfig,
+    attachments: (parsed.attachments ?? []) as SerializedAttachment[],
   };
 }
 
@@ -33,6 +34,28 @@ export async function setupSandbox(repoConfig: RepoConfig) {
   const sandbox = await createSandbox();
   const branchName = await cloneRepo(sandbox, repoConfig);
   return { sandbox, branchName };
+}
+
+const UPLOADS_DIR = "/tmp/uploads";
+
+/** Write serialized attachments into the sandbox and return their file paths. */
+export async function writeAttachmentsToSandbox(
+  sandbox: Sandbox,
+  attachments: SerializedAttachment[]
+): Promise<string[]> {
+  "use step";
+  if (!attachments.length) return [];
+
+  await sandbox.runCommand({ cmd: "mkdir", args: ["-p", UPLOADS_DIR] });
+
+  const files = attachments.map((att, i) => ({
+    path: `${UPLOADS_DIR}/${i}-${att.name}`,
+    content: Uint8Array.from(Buffer.from(att.dataBase64, "base64")),
+  }));
+
+  await sandbox.writeFiles(files);
+
+  return files.map((f) => f.path);
 }
 
 async function getThreadState(threadJson: string) {
@@ -116,19 +139,35 @@ async function buildContextualPrompt(
     .join("\n\n");
 }
 
+function buildFileManifest(filePaths: string[]): string {
+  if (!filePaths.length) return "";
+  const listing = filePaths
+    .map((p) => `- ${p.split("/").pop()} → ${p}`)
+    .join("\n");
+  return [
+    "The user attached the following files (saved to /tmp/uploads/):",
+    listing,
+    "Use these files to fulfill the request. Images can be viewed for visual reference. Other files (SVGs, CSVs, etc.) can be read or copied into the project as needed.",
+  ].join("\n");
+}
+
 export async function executePrompt(
   sandbox: Sandbox,
   threadJson: string,
   prompt: string,
-  claudeSessionId?: string
+  claudeSessionId?: string,
+  filePaths: string[] = []
 ) {
   "use step";
   const state = await getThreadState(threadJson);
   const sessionIdToResume = claudeSessionId ?? state?.claudeSessionId;
-  const contextualPrompt = await buildContextualPrompt(threadJson, prompt);
+  const fileManifest = buildFileManifest(filePaths);
+  const promptWithFiles = fileManifest
+    ? `${prompt}\n\n${fileManifest}`
+    : prompt;
 
   if (sessionIdToResume) {
-    const resumedResult = await runClaude(sandbox, prompt, sessionIdToResume);
+    const resumedResult = await runClaude(sandbox, promptWithFiles, sessionIdToResume);
     const resumeFailed =
       !resumedResult.success &&
       /resume|session/i.test(
@@ -140,7 +179,12 @@ export async function executePrompt(
     }
   }
 
-  return runClaude(sandbox, contextualPrompt);
+  const contextualPrompt = await buildContextualPrompt(threadJson, prompt);
+  const fullPrompt = fileManifest
+    ? `${contextualPrompt}\n\n${fileManifest}`
+    : contextualPrompt;
+
+  return runClaude(sandbox, fullPrompt);
 }
 
 export async function pushChanges(
@@ -151,7 +195,7 @@ export async function pushChanges(
   existingPrUrl?: string
 ) {
   "use step";
-  await commitAndPush(sandbox, prompt, branchName);
+  await commitAndPush(sandbox, prompt, branchName, repoConfig);
   return openOrUpdatePR(branchName, prompt, repoConfig, existingPrUrl);
 }
 
