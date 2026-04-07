@@ -10,6 +10,7 @@ import {
   executePrompt,
   updateClaudeSession,
   pushChanges,
+  postPreviewWhenReady,
   postResponse,
   markMessageHandled,
   closeSession,
@@ -45,12 +46,18 @@ async function processTurn(
   }
 
   let newPrUrl = prUrl;
+  const pushedAt = new Date().toISOString();
   if (result.hasChanges) {
     newPrUrl = await pushChanges(sandbox, text, branchName, repoConfig, prUrl);
   }
 
   await postResponse(threadJson, result.text, result.hasChanges ? newPrUrl : undefined);
   await markMessageHandled(threadJson, messageJson);
+
+  if (result.hasChanges) {
+    await postPreviewWhenReady(threadJson, branchName, repoConfig, pushedAt);
+  }
+
   return {
     claudeSessionId: newClaudeSessionId,
     prUrl: newPrUrl,

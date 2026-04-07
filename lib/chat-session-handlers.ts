@@ -55,6 +55,7 @@ async function routeTurn(
   }
 
   try {
+    await thread.createSentMessageFromMessage(message).addReaction(emoji.eyes);
     const attachments = await fetchAttachments(message);
     await resumeHook<ChatTurnPayload>(state.runId, {
       message: message.toJSON(),

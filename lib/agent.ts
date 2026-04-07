@@ -222,6 +222,63 @@ export async function openOrUpdatePR(
   return pr.html_url;
 }
 
+/** Poll GitHub Deployments API for a Vercel preview URL.
+ *  Only considers deployments created after `afterTimestamp` to avoid
+ *  returning stale URLs from previous pushes on the same branch. */
+export async function getPreviewDeploymentUrl(
+  owner: string,
+  repo: string,
+  branchName: string,
+  githubToken: string,
+  afterTimestamp: string,
+  timeoutMs = 180_000,
+  pollIntervalMs = 5_000
+): Promise<string | null> {
+  const deadline = Date.now() + timeoutMs;
+  const cutoff = new Date(afterTimestamp).getTime();
+  const headers = {
+    Authorization: `Bearer ${githubToken}`,
+    Accept: "application/vnd.github+json",
+  };
+
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/deployments?ref=${branchName}&per_page=5`,
+        { headers }
+      );
+
+      if (res.ok) {
+        const deployments = (await res.json()) as Array<{
+          created_at: string;
+          statuses_url: string;
+        }>;
+
+        for (const deployment of deployments) {
+          if (new Date(deployment.created_at).getTime() < cutoff) continue;
+
+          const statusRes = await fetch(deployment.statuses_url, { headers });
+          if (!statusRes.ok) continue;
+          const statuses = (await statusRes.json()) as Array<{
+            state: string;
+            environment_url?: string;
+          }>;
+          const withUrl = statuses.find((s) => s.environment_url);
+          if (withUrl?.environment_url) {
+            return withUrl.environment_url;
+          }
+        }
+      }
+    } catch {
+      // Network errors are fine — we'll retry
+    }
+
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+
+  return null;
+}
+
 /** Stop a sandbox (safe to call if already stopped). */
 export async function stopSandbox(sandbox: Sandbox): Promise<void> {
   try {

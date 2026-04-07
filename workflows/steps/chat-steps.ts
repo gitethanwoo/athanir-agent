@@ -7,9 +7,10 @@ import {
   runClaude,
   commitAndPush,
   openOrUpdatePR,
+  getPreviewDeploymentUrl,
   stopSandbox,
 } from "@/lib/agent";
-import { type RepoConfig } from "@/lib/config";
+import { type RepoConfig, getGitHubToken } from "@/lib/config";
 import type { SerializedAttachment } from "@/lib/attachments";
 
 const MAX_CONTEXT_MESSAGES = 20;
@@ -197,6 +198,23 @@ export async function pushChanges(
   "use step";
   await commitAndPush(sandbox, prompt, branchName, repoConfig);
   return openOrUpdatePR(branchName, prompt, repoConfig, existingPrUrl);
+}
+
+export async function postPreviewWhenReady(
+  threadJson: string,
+  branchName: string,
+  repoConfig: RepoConfig,
+  pushedAt: string
+) {
+  "use step";
+  const { owner, repo } = repoConfig;
+  const githubToken = getGitHubToken(repoConfig);
+  const previewUrl = await getPreviewDeploymentUrl(owner, repo, branchName, githubToken, pushedAt);
+  if (previewUrl) {
+    await bot.initialize();
+    const thread = JSON.parse(threadJson, bot.reviver());
+    await thread.post(`Preview ready: ${previewUrl}`);
+  }
 }
 
 /** Post a response to the thread. Takes serialized thread JSON, not Thread object. */
