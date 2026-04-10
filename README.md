@@ -52,9 +52,12 @@ ANTHROPIC_API_KEY=
 SLACK_BOT_TOKEN=
 SLACK_SIGNING_SECRET=
 GITHUB_TOKEN_DEFAULT=
+VERCEL_AUTOMATION_BYPASS_SECRET=
 ```
 
 In your Slack app, make sure the bot token has `files:read`. Without it, the agent can see that a file was attached but cannot download the contents. This is especially important in Slack Connect channels, where Slack may send file placeholders that must be resolved via `files.info` before download.
+
+If your Vercel previews are protected, set `VERCEL_AUTOMATION_BYPASS_SECRET` so the bot can post preview links that open directly in a browser. Vercel documents this bypass mechanism for protected deployments and webhooks.
 
 Add channel-to-repo mappings in `lib/config.ts`.
 

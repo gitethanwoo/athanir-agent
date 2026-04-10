@@ -8,6 +8,7 @@ import {
   commitAndPush,
   openOrUpdatePR,
   getPreviewDeploymentUrl,
+  getAccessiblePreviewUrl,
   stopSandbox,
 } from "@/lib/agent";
 import { type RepoConfig, getGitHubToken } from "@/lib/config";
@@ -211,9 +212,10 @@ export async function postPreviewWhenReady(
   const githubToken = getGitHubToken(repoConfig);
   const previewUrl = await getPreviewDeploymentUrl(owner, repo, branchName, githubToken, pushedAt);
   if (previewUrl) {
+    const accessiblePreviewUrl = getAccessiblePreviewUrl(previewUrl);
     await bot.initialize();
     const thread = JSON.parse(threadJson, bot.reviver());
-    await thread.post(`Preview ready: ${previewUrl}`);
+    await thread.post(`Preview ready: ${accessiblePreviewUrl}`);
   }
 }
 

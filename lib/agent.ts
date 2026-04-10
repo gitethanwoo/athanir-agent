@@ -279,6 +279,25 @@ export async function getPreviewDeploymentUrl(
   return null;
 }
 
+function buildBypassedPreviewUrl(previewUrl: string): string | null {
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (!bypassSecret) return null;
+
+  try {
+    const url = new URL(previewUrl);
+    url.searchParams.set("x-vercel-protection-bypass", bypassSecret);
+    url.searchParams.set("x-vercel-set-bypass-cookie", "true");
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Return a preview URL that humans can open when deployment protection is enabled. */
+export function getAccessiblePreviewUrl(previewUrl: string): string {
+  return buildBypassedPreviewUrl(previewUrl) ?? previewUrl;
+}
+
 /** Stop a sandbox (safe to call if already stopped). */
 export async function stopSandbox(sandbox: Sandbox): Promise<void> {
   try {
