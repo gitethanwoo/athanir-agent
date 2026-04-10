@@ -54,6 +54,8 @@ SLACK_SIGNING_SECRET=
 GITHUB_TOKEN_DEFAULT=
 ```
 
+In your Slack app, make sure the bot token has `files:read`. Without it, the agent can see that a file was attached but cannot download the contents. This is especially important in Slack Connect channels, where Slack may send file placeholders that must be resolved via `files.info` before download.
+
 Add channel-to-repo mappings in `lib/config.ts`.
 
 Deploy to Vercel and set your Slack app's Event Subscriptions URL to `https://<domain>/api/slack`.

@@ -1,0 +1,194 @@
+{
+  "version": "1.0.0",
+  "steps": {
+    "node_modules/@vercel/sandbox/dist/snapshot.js": {
+      "Snapshot#delete": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Snapshot#delete"
+      },
+      "Snapshot.get": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Snapshot.get"
+      },
+      "Snapshot.list": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Snapshot.list"
+      }
+    },
+    "node_modules/@vercel/sandbox/dist/command.js": {
+      "Command#ensureClient": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Command#ensureClient"
+      },
+      "Command#kill": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Command#kill"
+      },
+      "Command#output": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Command#output"
+      },
+      "Command#stderr": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Command#stderr"
+      },
+      "Command#stdout": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Command#stdout"
+      },
+      "Command#wait": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Command#wait"
+      }
+    },
+    "node_modules/workflow/dist/stdlib.js": {
+      "fetch": {
+        "stepId": "step//workflow@4.2.0-beta.76//fetch"
+      }
+    },
+    "node_modules/@vercel/sandbox/dist/sandbox.js": {
+      "Sandbox#downloadFile": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#downloadFile"
+      },
+      "Sandbox#ensureClient": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#ensureClient"
+      },
+      "Sandbox#extendTimeout": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#extendTimeout"
+      },
+      "Sandbox#getCommand": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#getCommand"
+      },
+      "Sandbox#mkDir": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#mkDir"
+      },
+      "Sandbox#readFile": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#readFile"
+      },
+      "Sandbox#readFileToBuffer": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#readFileToBuffer"
+      },
+      "Sandbox#runCommand": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#runCommand"
+      },
+      "Sandbox#snapshot": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#snapshot"
+      },
+      "Sandbox#stop": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#stop"
+      },
+      "Sandbox#updateNetworkPolicy": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#updateNetworkPolicy"
+      },
+      "Sandbox#writeFiles": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox#writeFiles"
+      },
+      "Sandbox.create": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox.create"
+      },
+      "Sandbox.get": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox.get"
+      },
+      "Sandbox.list": {
+        "stepId": "step//@vercel/sandbox@1.9.2//Sandbox.list"
+      }
+    },
+    "node_modules/workflow/dist/internal/builtins.js": {
+      "__builtin_response_array_buffer": {
+        "stepId": "__builtin_response_array_buffer"
+      },
+      "__builtin_response_json": {
+        "stepId": "__builtin_response_json"
+      },
+      "__builtin_response_text": {
+        "stepId": "__builtin_response_text"
+      }
+    },
+    "workflows/steps/chat-steps.ts": {
+      "closeSession": {
+        "stepId": "step//./workflows/steps/chat-steps//closeSession"
+      },
+      "executePrompt": {
+        "stepId": "step//./workflows/steps/chat-steps//executePrompt"
+      },
+      "markMessageHandled": {
+        "stepId": "step//./workflows/steps/chat-steps//markMessageHandled"
+      },
+      "parsePayload": {
+        "stepId": "step//./workflows/steps/chat-steps//parsePayload"
+      },
+      "postResponse": {
+        "stepId": "step//./workflows/steps/chat-steps//postResponse"
+      },
+      "pushChanges": {
+        "stepId": "step//./workflows/steps/chat-steps//pushChanges"
+      },
+      "setupSandbox": {
+        "stepId": "step//./workflows/steps/chat-steps//setupSandbox"
+      },
+      "updateClaudeSession": {
+        "stepId": "step//./workflows/steps/chat-steps//updateClaudeSession"
+      },
+      "writeAttachmentsToSandbox": {
+        "stepId": "step//./workflows/steps/chat-steps//writeAttachmentsToSandbox"
+      }
+    }
+  },
+  "workflows": {
+    "workflows/durable-chat-session.ts": {
+      "durableChatSession": {
+        "workflowId": "workflow//./workflows/durable-chat-session//durableChatSession",
+        "graph": {
+          "nodes": [
+            {
+              "id": "start",
+              "type": "workflowStart",
+              "data": {
+                "label": "Start: durableChatSession",
+                "nodeKind": "workflow_start"
+              }
+            },
+            {
+              "id": "end",
+              "type": "workflowEnd",
+              "data": {
+                "label": "Return",
+                "nodeKind": "workflow_end"
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e_start_end",
+              "source": "start",
+              "target": "end",
+              "type": "default"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "classes": {
+    "node_modules/@vercel/sandbox/dist/snapshot.js": {
+      "Snapshot": {
+        "classId": "class//@vercel/sandbox@1.9.2//Snapshot"
+      }
+    },
+    "node_modules/@vercel/sandbox/dist/command.js": {
+      "Command": {
+        "classId": "class//@vercel/sandbox@1.9.2//Command"
+      },
+      "CommandFinished": {
+        "classId": "class//@vercel/sandbox@1.9.2//CommandFinished"
+      }
+    },
+    "node_modules/@vercel/sandbox/dist/sandbox.js": {
+      "Sandbox": {
+        "classId": "class//@vercel/sandbox@1.9.2//Sandbox"
+      }
+    },
+    "node_modules/chat/dist/index.js": {
+      "ChannelImpl": {
+        "classId": "class//chat@4.23.0//ChannelImpl"
+      },
+      "Message": {
+        "classId": "class//chat@4.23.0//Message"
+      },
+      "ThreadImpl": {
+        "classId": "class//chat@4.23.0//ThreadImpl"
+      }
+    }
+  }
+}
