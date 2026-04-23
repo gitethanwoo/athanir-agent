@@ -88,28 +88,39 @@ async function fetchSlackFileInfo(fileId: string): Promise<SlackFileObject | nul
   return payload.file;
 }
 
-async function fetchSlackConnectAttachments(
+async function fetchSlackRawFileAttachments(
   message: Message
-): Promise<SerializedAttachment[]> {
+): Promise<{ attachments: SerializedAttachment[]; fileCount: number }> {
   const raw = message.raw as SlackMessageRaw | undefined;
   const rawFiles = raw?.files ?? [];
   const results: SerializedAttachment[] = [];
 
   for (const file of rawFiles) {
-    if (file.file_access !== "check_file_info" || !file.id) continue;
-
     try {
-      const hydratedFile = await fetchSlackFileInfo(file.id);
-      if (!hydratedFile) continue;
+      const needsHydration =
+        file.file_access === "check_file_info" || !getSlackDownloadUrl(file);
+      const downloadableFile =
+        needsHydration && file.id ? await fetchSlackFileInfo(file.id) : file;
 
-      const attachment = await downloadSlackFile(hydratedFile);
+      if (!downloadableFile) continue;
+
+      const attachment = await downloadSlackFile(downloadableFile);
       if (attachment) results.push(attachment);
     } catch {
       // Skip attachments that fail to resolve or download
     }
   }
 
-  return results;
+  return { attachments: results, fileCount: rawFiles.length };
+}
+
+function hasAttachment(
+  attachments: SerializedAttachment[],
+  candidate: SerializedAttachment
+): boolean {
+  return attachments.some(
+    (attachment) => attachment.dataBase64 === candidate.dataBase64
+  );
 }
 
 /**
@@ -119,23 +130,33 @@ async function fetchSlackConnectAttachments(
 export async function fetchAttachments(
   message: Message
 ): Promise<SerializedAttachment[]> {
-  const results: SerializedAttachment[] = [];
+  const slackAttachments = await fetchSlackRawFileAttachments(message);
+  const results = [...slackAttachments.attachments];
+
+  if (
+    slackAttachments.fileCount > 0 &&
+    slackAttachments.attachments.length >= slackAttachments.fileCount
+  ) {
+    return results;
+  }
+
   for (const att of message.attachments ?? []) {
     if (!att.fetchData) continue;
     try {
       const buffer = await att.fetchData();
-      results.push({
+      const attachment = {
         name: att.name ?? "attachment",
         mimeType: att.mimeType ?? "application/octet-stream",
         dataBase64: buffer.toString("base64"),
-      });
+      };
+
+      if (!hasAttachment(results, attachment)) {
+        results.push(attachment);
+      }
     } catch {
       // Skip attachments that fail to download
     }
   }
-
-  const slackConnectAttachments = await fetchSlackConnectAttachments(message);
-  results.push(...slackConnectAttachments);
 
   return results;
 }
