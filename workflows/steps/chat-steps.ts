@@ -12,6 +12,7 @@ import {
   stopSandbox,
 } from "@/lib/agent";
 import { type RepoConfig, getGitHubToken } from "@/lib/config";
+import { fetchSlackChannelHistoryContext } from "@/lib/slack-channel-history";
 import type { SerializedAttachment } from "@/lib/attachments";
 
 const MAX_CONTEXT_MESSAGES = 20;
@@ -85,11 +86,17 @@ function normalizeText(text: string): string {
 
 async function buildContextualPrompt(
   threadJson: string,
-  prompt: string
+  prompt: string,
+  repoConfig: RepoConfig
 ): Promise<string> {
   await bot.initialize();
   const thread = JSON.parse(threadJson, bot.reviver());
   const currentText = normalizeText(prompt);
+  const channelHistory = await fetchSlackChannelHistoryContext(
+    thread.channelId ?? thread.channel?.id ?? "",
+    repoConfig,
+    currentText
+  );
   const recentMessages: Array<{ speaker: string; text: string }> = [];
 
   for await (const message of thread.messages) {
@@ -131,9 +138,12 @@ async function buildContextualPrompt(
   }
 
   return [
-    "You are continuing an existing Slack thread about this repository.",
-    "Use the prior thread context when interpreting short follow-ups like 'yes', 'that one', or 'make it white'.",
+    channelHistory
+      ? "You are continuing a Slack conversation about this repository. The channel is dedicated to this bot, so recent channel history may contain context even when the user starts a new thread."
+      : "You are continuing an existing Slack thread about this repository.",
+    "Use the prior context when interpreting short follow-ups like 'yes', 'that one', or 'make it white'.",
     "If the user is replying to a prior assistant question, answer that question directly instead of treating the reply as a brand-new request.",
+    channelHistory ? `Recent channel history (oldest to newest):\n${channelHistory}` : "",
     history ? `Thread history (oldest to newest):\n${history}` : "",
     `Current user message:\n${currentText}`,
   ]
@@ -157,6 +167,7 @@ export async function executePrompt(
   sandbox: Sandbox,
   threadJson: string,
   prompt: string,
+  repoConfig: RepoConfig,
   claudeSessionId?: string,
   filePaths: string[] = []
 ) {
@@ -181,7 +192,7 @@ export async function executePrompt(
     }
   }
 
-  const contextualPrompt = await buildContextualPrompt(threadJson, prompt);
+  const contextualPrompt = await buildContextualPrompt(threadJson, prompt, repoConfig);
   const fullPrompt = fileManifest
     ? `${contextualPrompt}\n\n${fileManifest}`
     : contextualPrompt;

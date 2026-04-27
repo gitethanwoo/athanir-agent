@@ -38,7 +38,14 @@ async function processTurn(
     ? await writeAttachmentsToSandbox(sandbox, attachments)
     : [];
 
-  const result = await executePrompt(sandbox, threadJson, text, claudeSessionId, filePaths);
+  const result = await executePrompt(
+    sandbox,
+    threadJson,
+    text,
+    repoConfig,
+    claudeSessionId,
+    filePaths
+  );
 
   const newClaudeSessionId = result.sessionId ?? claudeSessionId;
   if (newClaudeSessionId && newClaudeSessionId !== claudeSessionId) {
